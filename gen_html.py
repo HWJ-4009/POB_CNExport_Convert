@@ -372,13 +372,16 @@ function normalizeLine(line) {
 // Tried only as a fallback when the exact template isn't found.
 const SYNONYM_SWAPS = [["与", "和"], ["和", "与"], ["生效时间", "持续时间"], ["持续时间", "生效时间"]];
 
-// Flasks' own base-type buff line (e.g. Bismuth Flask's elemental resistance
-// bonus) isn't a crafted/rolled affix, so it has no row in statDescriptions.csv -
-// it's a fixed string on the base type itself (PathOfBuilding source:
-// src/Data/Bases/flask.lua, `buff = { "..." }`). Confirmed per entry as
-// encountered; not an exhaustive list of every flask base's buff.
-const FLASK_BASE_BUFF_DICT = {
-  "{0}% 所有元素抗性": "{0}% to all Elemental Resistances", // Bismuth Flask
+// Manually-confirmed entries for lines statDescriptions.csv either doesn't
+// cover (flask base-type buffs - fixed strings from PathOfBuilding source's
+// src/Data/Bases/flask.lua, not a rolled affix) or covers only under
+// different CN phrasing than the client actually uses for that stat.
+// Extend only with entries confirmed against a real item + source data.
+const EXTRA_MOD_DICT = {
+  "{0}% 所有元素抗性": "{0}% to all Elemental Resistances", // Bismuth Flask base buff
+  "{0}% 法术伤害格挡几率": "{0}% Chance to Block Spell Damage",
+  "{0}% 攻击伤害格挡几率上限": "{0}% to maximum Chance to Block Attack Damage",
+  "{0}% 法术伤害格挡几率上限": "{0}% to maximum Chance to Block Spell Damage",
 };
 
 function lookupTemplate(template) {
@@ -390,7 +393,7 @@ function lookupTemplate(template) {
       if (hit !== undefined) return hit;
     }
   }
-  hit = FLASK_BASE_BUFF_DICT[template];
+  hit = EXTRA_MOD_DICT[template];
   if (hit !== undefined) return hit;
   return undefined;
 }
@@ -411,9 +414,13 @@ function translateModLine(rawLine) {
 
 function isBracketLine(line) {
   const t = line.trim();
-  return (t.startsWith("{") && t.endsWith("}")) ||
-         (t.startsWith("(") && t.endsWith(")")) ||
-         (t.startsWith("\uFF08") && t.endsWith("\uFF09"));
+  if (t.startsWith("{") && t.endsWith("}")) return true;
+  // The client's own text isn't always consistent about half-width vs
+  // full-width parens on the same line (e.g. "(...)" opened half-width but
+  // closed full-width "\uFF09") - accept either width on either side.
+  const opensParen = t.startsWith("(") || t.startsWith("\uFF08");
+  const closesParen = t.endsWith(")") || t.endsWith("\uFF09");
+  return opensParen && closesParen;
 }
 
 function stripLabelSpaces(s) {
@@ -479,9 +486,9 @@ function convertItem(raw) {
 
   const LABEL_MAP = {
     "\u54c1\u8d28": "Quality", "\u62a4\u7532": "Armour", "\u95ea\u907f\u503c": "Evasion Rating",
-    "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
+    "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7ed3\u754c": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
     "\u654f\u6377": "Dexterity", "\u667a\u6167": "Intelligence", "\u7269\u54c1\u7b49\u7ea7": "Item Level",
-    "\u4ec5\u9650": "Limited to", "\u8303\u56f4": "Radius",
+    "\u4ec5\u9650": "Limited to", "\u8303\u56f4": "Radius", "\u683c\u6321\u51e0\u7387": "Chance to Block",
   };
   const FIXED_LINES = {
     "\u9700\u6c42:": "Requirements:", "\u5df2\u8150\u5316": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
