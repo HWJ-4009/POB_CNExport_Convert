@@ -507,6 +507,16 @@ function convertItem(raw) {
   const ENCHANT_GRANT_PREFIX_ZH = "\u589e\u52a0\u7684\u5c0f\u5929\u8d4b\u83b7\u5f97\uff1a";
   const ENCHANT_GRANT_PREFIX_EN = "Added Small Passive Skills grant: ";
 
+  // When an item's quality came from a Catalyst, PoB expects the label
+  // "Quality (<Descriptor> Modifiers)" - confirmed via Item.lua:653-659
+  // (`specName:match("Quality %([%a%s]+ Modifiers%)")` matched against the 12
+  // catalyst descriptors at Item.lua:15) and the CN descriptor word via
+  // ItemsTab.csv's Catalyst names (e.g. "Intrinsic (Attribute)" <->
+  // "\u5185\u5728\u50ac\u5316\u5242(\u5c5e\u6027)"). Only descriptors seen in a real item go in this map;
+  // extend as further catalyst types come up (Attack/Speed/Suffix/Life and
+  // Mana/Caster/Physical and Chaos/Resistance/Prefix/Defence/Elemental/Critical).
+  const QUALITY_CATALYST_DESCRIPTORS = { "\u5c5e\u6027": "Attribute" };
+
   // Translate a single logical line (already stripped of any trailing
   // " (enchant)" tag and any "X \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574" annotation suffix).
   function translateLine(line) {
@@ -522,6 +532,11 @@ function convertItem(raw) {
 
     if (label === "\u63d2\u69fd" && value !== null) {
       return { text: "Sockets: " + value };
+    }
+    const qualityCatalystMatch = value !== null && label.match(/^\u54c1\u8d28\uff08(.+)\u8bcd\u7f00\uff09$/);
+    if (qualityCatalystMatch) {
+      const descriptor = QUALITY_CATALYST_DESCRIPTORS[qualityCatalystMatch[1]];
+      if (descriptor) return { text: "Quality (" + descriptor + " Modifiers): " + value };
     }
     if (label in LABEL_MAP && value !== null) {
       let mappedValue = value;
