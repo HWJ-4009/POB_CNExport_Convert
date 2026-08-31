@@ -465,66 +465,106 @@ function convertItem(raw) {
     i += nameLineCount;
   }
 
-  // Remaining lines
-  for (; i < lines.length; i++) {
-    const line = lines[i];
-    if (line === "--------") { out.push(line); continue; }
-    if (isBracketLine(line)) continue; // drop { affix annotation } and (reminder text)
+  const LABEL_MAP = {
+    "\u54c1\u8d28": "Quality", "\u62a4\u7532": "Armour", "\u95ea\u907f\u503c": "Evasion Rating",
+    "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
+    "\u654f\u6377": "Dexterity", "\u667a\u6167": "Intelligence", "\u7269\u54c1\u7b49\u7ea7": "Item Level",
+    "\u4ec5\u9650": "Limited to",
+  };
+  const FIXED_LINES = {
+    "\u9700\u6c42:": "Requirements:", "\u5df2\u8150\u5316": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
+    "\u672a\u9274\u5b9a": "Unidentified", "\u5206\u88c2": "Split", "\u711a\u754c\u8005\u7269\u54c1": "Searing Exarch Item",
+    "\u706d\u754c\u8005\u7269\u54c1": "Eater of Worlds Item",
+  };
+  // Value-side word substitutions for LABEL_MAP fields whose value also
+  // contains untranslated Chinese (e.g. "Limited to: 1 \u53f2\u5b9e").
+  const VALUE_WORD_MAP = { "\u53f2\u5b9e": "Historic" };
+  // Fixed UI/instruction text that has no effect on any PoB calculation
+  // (confirmed absent from PoB's own Item.lua field parser and its bundled
+  // Uniques database) - safe to drop, same rationale as bracket/reminder lines.
+  const DROP_LINES = new Set([
+    "\u653e\u7f6e\u5230\u4e00\u4e2a\u5929\u8d4b\u6811\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u4ea7\u751f\u6548\u679c\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
+    "\u653e\u5165\u4e00\u4e2a\u7269\u54c1\u7684\u6df1\u6e0a\u63d2\u69fd\u6216\u5929\u8d4b\u6811\u4e0a\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u751f\u6548\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
+    "\u653e\u5165\u5929\u8d4b\u6811\u4e0a\u914d\u7f6e\u597d\u7684\u5927\u578b\u73e0\u5b9d\u69fd\u3002\u589e\u52a0\u7684\u5929\u8d4b\u8ddf\u73e0\u5b9d\u8303\u56f4\u65e0\u5173\u3002\u53ef\u4ee5\u53f3\u952e\u70b9\u51fb\u4ece\u63d2\u69fd\u4e2d\u79fb\u9664\u3002",
+    "\u51fa\u552e\u83b7\u5f97\u901a\u8d27:\u975e\u7ed1\u5b9a",
+  ]);
+  // Cluster Jewel enchant-granted small-passive lines are wrapped as
+  // "\u589e\u52a0\u7684\u5c0f\u5929\u8d4b\u83b7\u5f97\uff1a<stat>" in the client, but statDescriptions.csv only
+  // stores the bare <stat> template plus the *also*-grant ("\u8fd8\u83b7\u5f97") wrapped
+  // form used for affix lines. Confirmed via statDescriptions.csv that
+  // "\u8fd8" is the only difference between the "\u83b7\u5f97"/"\u8fd8\u83b7\u5f97" wrappers, so the
+  // English wrapper below is derived directly from the "\u8fd8\u83b7\u5f97" rows
+  // (e.g. "Added Small Passive Skills also grant: {0} to Armour" <->
+  // "\u589e\u52a0\u7684\u5c0f\u5929\u8d4b\u8fd8\u83b7\u5f97\uff1a{0} \u62a4\u7532\u503c"), dropping "also " the same way the
+  // source drops "\u8fd8".
+  const ENCHANT_GRANT_PREFIX_ZH = "\u589e\u52a0\u7684\u5c0f\u5929\u8d4b\u83b7\u5f97\uff1a";
+  const ENCHANT_GRANT_PREFIX_EN = "Added Small Passive Skills grant: ";
+
+  // Translate a single logical line (already stripped of any trailing
+  // " (enchant)" tag and any "X \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574" annotation suffix).
+  function translateLine(line) {
+    if (isBracketLine(line)) return { drop: true };
 
     const [label, value] = splitLabel(line);
     const compact = stripLabelSpaces(line);
 
-    const LABEL_MAP = {
-      "\u54c1\u8d28": "Quality", "\u62a4\u7532": "Armour", "\u95ea\u907f\u503c": "Evasion Rating",
-      "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
-      "\u654f\u6377": "Dexterity", "\u667a\u6167": "Intelligence", "\u7269\u54c1\u7b49\u7ea7": "Item Level",
-      "\u4ec5\u9650": "Limited to",
-    };
-    const FIXED_LINES = {
-      "\u9700\u6c42:": "Requirements:", "\u5df2\u8150\u5316": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
-      "\u672a\u9274\u5b9a": "Unidentified", "\u5206\u88c2": "Split", "\u711a\u754c\u8005\u7269\u54c1": "Searing Exarch Item",
-      "\u706d\u754c\u8005\u7269\u54c1": "Eater of Worlds Item",
-    };
-    // Value-side word substitutions for LABEL_MAP fields whose value also
-    // contains untranslated Chinese (e.g. "Limited to: 1 \u53f2\u5b9e").
-    const VALUE_WORD_MAP = { "\u53f2\u5b9e": "Historic" };
-    // Fixed UI/instruction text that has no effect on any PoB calculation
-    // (confirmed absent from PoB's own Item.lua field parser and its bundled
-    // Uniques database) - safe to drop, same rationale as bracket/reminder lines.
-    const DROP_LINES = new Set([
-      "\u653e\u7f6e\u5230\u4e00\u4e2a\u5929\u8d4b\u6811\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u4ea7\u751f\u6548\u679c\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
-      "\u653e\u5165\u4e00\u4e2a\u7269\u54c1\u7684\u6df1\u6e0a\u63d2\u69fd\u6216\u5929\u8d4b\u6811\u4e0a\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u751f\u6548\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
-      "\u51fa\u552e\u83b7\u5f97\u901a\u8d27:\u975e\u7ed1\u5b9a",
-    ]);
-    // "X \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574" (e.g. "\u53f2\u5b9e \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574"): a client-side
-    // annotation noting a value can't be modified by quality/catalysts. Not a
-    // field PoB's parser or unique database recognises either - drop it.
-    const isValueLockedAnnotation = /^.+\u2014\u6570\u503c\u4e0d\u53ef\u8c03\u6574$/.test(compact);
+    if (DROP_LINES.has(compact)) return { drop: true };
 
-    if (DROP_LINES.has(compact) || isValueLockedAnnotation) continue;
-
-    let mapped = null;
     if (label === "\u63d2\u69fd" && value !== null) {
-      mapped = "Sockets: " + value;
-    } else if (label in LABEL_MAP && value !== null) {
+      return { text: "Sockets: " + value };
+    }
+    if (label in LABEL_MAP && value !== null) {
       let mappedValue = value;
       for (const [zh, en] of Object.entries(VALUE_WORD_MAP)) {
         mappedValue = mappedValue.split(zh).join(en);
       }
-      mapped = LABEL_MAP[label] + ": " + mappedValue;
-    } else if (compact in FIXED_LINES) {
-      mapped = FIXED_LINES[compact];
+      return { text: LABEL_MAP[label] + ": " + mappedValue };
     }
-
-    if (mapped !== null) { out.push(mapped); continue; }
+    if (compact in FIXED_LINES) {
+      return { text: FIXED_LINES[compact] };
+    }
+    if (line.startsWith(ENCHANT_GRANT_PREFIX_ZH)) {
+      const core = line.slice(ENCHANT_GRANT_PREFIX_ZH.length);
+      const res = translateModLine(core);
+      if (res.ok && res.text) return { text: ENCHANT_GRANT_PREFIX_EN + res.text };
+      return { miss: line };
+    }
 
     const res = translateModLine(line);
-    if (res.ok) {
-      if (res.text) out.push(res.text);
-    } else {
-      out.push("# UNTRANSLATED: " + res.text);
-      misses.push(res.text);
+    if (res.ok) return { text: res.text };
+    return { miss: res.text };
+  }
+
+  // Remaining lines
+  for (; i < lines.length; i++) {
+    let line = lines[i];
+    if (line === "--------") { out.push(line); continue; }
+
+    // Cluster Jewel lines granted "by the jewel itself" carry a literal
+    // " (enchant)" tag (kept in English even in the CN client) - strip it
+    // before matching, then reattach it to whatever the line translates to.
+    let enchantSuffix = "";
+    const enchantMatch = line.match(/^(.*)\s\(enchant\)$/);
+    if (enchantMatch) {
+      line = enchantMatch[1];
+      enchantSuffix = " (enchant)";
     }
+
+    // "X \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574": a client-side annotation noting a value can't be
+    // modified by quality/catalysts. Not a field PoB's parser or unique
+    // database recognises - strip the annotation, keep translating the rest.
+    const annotationMatch = line.match(/^(.*?)\s*\u2014\s*\u6570\u503c\u4e0d\u53ef\u8c03\u6574\s*$/);
+    if (annotationMatch) line = annotationMatch[1];
+    if (!line) continue;
+
+    const result = translateLine(line);
+    if (result.drop) continue;
+    if (result.text !== undefined) {
+      if (result.text) out.push(result.text + enchantSuffix);
+      continue;
+    }
+    out.push("# UNTRANSLATED: " + result.miss + enchantSuffix);
+    misses.push(result.miss);
   }
 
   return { text: out.join("\n"), misses, rarity };
