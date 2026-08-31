@@ -372,6 +372,15 @@ function normalizeLine(line) {
 // Tried only as a fallback when the exact template isn't found.
 const SYNONYM_SWAPS = [["与", "和"], ["和", "与"], ["生效时间", "持续时间"], ["持续时间", "生效时间"]];
 
+// Flasks' own base-type buff line (e.g. Bismuth Flask's elemental resistance
+// bonus) isn't a crafted/rolled affix, so it has no row in statDescriptions.csv -
+// it's a fixed string on the base type itself (PathOfBuilding source:
+// src/Data/Bases/flask.lua, `buff = { "..." }`). Confirmed per entry as
+// encountered; not an exhaustive list of every flask base's buff.
+const FLASK_BASE_BUFF_DICT = {
+  "{0}% 所有元素抗性": "{0}% to all Elemental Resistances", // Bismuth Flask
+};
+
 function lookupTemplate(template) {
   let hit = MOD_DICT[template];
   if (hit !== undefined) return hit;
@@ -381,6 +390,8 @@ function lookupTemplate(template) {
       if (hit !== undefined) return hit;
     }
   }
+  hit = FLASK_BASE_BUFF_DICT[template];
+  if (hit !== undefined) return hit;
   return undefined;
 }
 
@@ -493,6 +504,7 @@ function convertItem(raw) {
     "\u653e\u5165\u5929\u8d4b\u6811\u4e0a\u914d\u7f6e\u597d\u7684\u5927\u578b\u73e0\u5b9d\u69fd\u3002\u589e\u52a0\u7684\u5929\u8d4b\u8ddf\u73e0\u5b9d\u8303\u56f4\u65e0\u5173\u3002\u53ef\u4ee5\u53f3\u952e\u70b9\u51fb\u4ece\u63d2\u69fd\u4e2d\u79fb\u9664\u3002",
     "\u51fa\u552e\u83b7\u5f97\u901a\u8d27:\u975e\u7ed1\u5b9a",
     "\u53f3\u952e\u70b9\u51fb\u996e\u7528\u3002\u53ea\u6709\u5728\u8170\u5e26\u91cc\u624d\u6062\u590d\u4f7f\u7528\u6b21\u6570\u3002\u51fb\u8d25\u654c\u4eba\u65f6\u5145\u6ee1\u3002",
+    "\u70b9\u51fb\u53f3\u952e\u4ee5\u559d\u4e0b\u836f\u5242\u3002\u53ea\u6709\u88c5\u5907\u4e8e\u8170\u5e26\u4e0a\u65f6\u624d\u4f1a\u5145\u80fd\u3002\u51fb\u8d25\u602a\u7269\u65f6\u4f1a\u56de\u590d\u5145\u80fd\u6b21\u6570\u3002",
   ]);
   // Flask duration/charge state lines. These aren't dictionary mod
   // templates - PoB's own parser recognises and no-ops them by an exact
