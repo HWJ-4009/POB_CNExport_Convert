@@ -349,6 +349,7 @@ const CLASS_MAP = {
   "长杖":"Warstaff","弓":"Bow","法器":"Wand","鱼竿":"Fishing Rod",
   "爪":"Claw","军旗":"War Banner",
   "生命药剂":"Life Flask","魔力药剂":"Mana Flask","混合药剂":"Hybrid Flask","神圣药剂":"Utility Flask",
+  "功能药剂":"Utility Flask",
   "珠宝":"Jewel","异能珠宝":"Abyss Jewel","星团珠宝":"Cluster Jewel",
   "地图碎片":"Map Fragment","地图":"Map","符石":"Rune",
 };
@@ -369,7 +370,7 @@ function normalizeLine(line) {
 // A handful of connective words appear inconsistently between otherwise-identical
 // templates in the source data (e.g. "与" vs "和", both meaning "and").
 // Tried only as a fallback when the exact template isn't found.
-const SYNONYM_SWAPS = [["与", "和"], ["和", "与"]];
+const SYNONYM_SWAPS = [["与", "和"], ["和", "与"], ["生效时间", "持续时间"], ["持续时间", "生效时间"]];
 
 function lookupTemplate(template) {
   let hit = MOD_DICT[template];
@@ -491,7 +492,20 @@ function convertItem(raw) {
     "\u653e\u5165\u4e00\u4e2a\u7269\u54c1\u7684\u6df1\u6e0a\u63d2\u69fd\u6216\u5929\u8d4b\u6811\u4e0a\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u751f\u6548\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
     "\u653e\u5165\u5929\u8d4b\u6811\u4e0a\u914d\u7f6e\u597d\u7684\u5927\u578b\u73e0\u5b9d\u69fd\u3002\u589e\u52a0\u7684\u5929\u8d4b\u8ddf\u73e0\u5b9d\u8303\u56f4\u65e0\u5173\u3002\u53ef\u4ee5\u53f3\u952e\u70b9\u51fb\u4ece\u63d2\u69fd\u4e2d\u79fb\u9664\u3002",
     "\u51fa\u552e\u83b7\u5f97\u901a\u8d27:\u975e\u7ed1\u5b9a",
+    "\u53f3\u952e\u70b9\u51fb\u996e\u7528\u3002\u53ea\u6709\u5728\u8170\u5e26\u91cc\u624d\u6062\u590d\u4f7f\u7528\u6b21\u6570\u3002\u51fb\u8d25\u654c\u4eba\u65f6\u5145\u6ee1\u3002",
   ]);
+  // Flask duration/charge state lines. These aren't dictionary mod
+  // templates - PoB's own parser recognises and no-ops them by an exact
+  // regex match (Item.lua: line:match("^Lasts .+ Seconds$") etc.), so the
+  // English wording below is taken directly from that source, not guessed.
+  function translateFlaskStateLine(line) {
+    let m;
+    if ((m = line.match(/^\u6301\u7eed\s*(.+?)\s*\u79d2$/))) return "Lasts " + m[1] + " Seconds";
+    if ((m = line.match(/^\u6bcf\u6b21\u4f7f\u7528\u4f1a\u4ece\s*(\d+)\s*\u5145\u80fd\u6b21\u6570\u4e2d\u6d88\u8017\s*(\d+)\s*\u6b21$/)))
+      return "Consumes " + m[2] + " of " + m[1] + " Charges on use";
+    if ((m = line.match(/^\u76ee\u524d\u6709\s*(\d+)\s*\u5145\u80fd\u6b21\u6570$/))) return "Currently has " + m[1] + " Charges";
+    return null;
+  }
   // Cluster Jewel enchant-granted small-passive lines are wrapped as
   // "\u589e\u52a0\u7684\u5c0f\u5929\u8d4b\u83b7\u5f97\uff1a<stat>" in the client, but statDescriptions.csv only
   // stores the bare <stat> template plus the *also*-grant ("\u8fd8\u83b7\u5f97") wrapped
@@ -508,6 +522,9 @@ function convertItem(raw) {
   // " (enchant)" tag and any "X \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574" annotation suffix).
   function translateLine(line) {
     if (isBracketLine(line)) return { drop: true };
+
+    const flaskState = translateFlaskStateLine(line);
+    if (flaskState !== null) return { text: flaskState };
 
     const [label, value] = splitLabel(line);
     const compact = stripLabelSpaces(line);
