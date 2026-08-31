@@ -469,7 +469,7 @@ function convertItem(raw) {
     "\u54c1\u8d28": "Quality", "\u62a4\u7532": "Armour", "\u95ea\u907f\u503c": "Evasion Rating",
     "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
     "\u654f\u6377": "Dexterity", "\u667a\u6167": "Intelligence", "\u7269\u54c1\u7b49\u7ea7": "Item Level",
-    "\u4ec5\u9650": "Limited to",
+    "\u4ec5\u9650": "Limited to", "\u8303\u56f4": "Radius",
   };
   const FIXED_LINES = {
     "\u9700\u6c42:": "Requirements:", "\u5df2\u8150\u5316": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
@@ -477,8 +477,12 @@ function convertItem(raw) {
     "\u706d\u754c\u8005\u7269\u54c1": "Eater of Worlds Item",
   };
   // Value-side word substitutions for LABEL_MAP fields whose value also
-  // contains untranslated Chinese (e.g. "Limited to: 1 \u53f2\u5b9e").
-  const VALUE_WORD_MAP = { "\u53f2\u5b9e": "Historic" };
+  // contains untranslated Chinese (e.g. "Limited to: 1 \u53f2\u5b9e", "Radius: \u5c0f").
+  // Scoped per label so a substitution for one field can't leak into another.
+  const VALUE_WORD_MAPS = {
+    "\u4ec5\u9650": { "\u53f2\u5b9e": "Historic" },
+    "\u8303\u56f4": { "\u5c0f": "Small", "\u4e2d": "Medium", "\u5927": "Large" },
+  };
   // Fixed UI/instruction text that has no effect on any PoB calculation
   // (confirmed absent from PoB's own Item.lua field parser and its bundled
   // Uniques database) - safe to drop, same rationale as bracket/reminder lines.
@@ -515,8 +519,11 @@ function convertItem(raw) {
     }
     if (label in LABEL_MAP && value !== null) {
       let mappedValue = value;
-      for (const [zh, en] of Object.entries(VALUE_WORD_MAP)) {
-        mappedValue = mappedValue.split(zh).join(en);
+      const wordMap = VALUE_WORD_MAPS[label];
+      if (wordMap) {
+        for (const [zh, en] of Object.entries(wordMap)) {
+          mappedValue = mappedValue.split(zh).join(en);
+        }
       }
       return { text: LABEL_MAP[label] + ": " + mappedValue };
     }
