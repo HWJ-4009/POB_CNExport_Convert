@@ -323,8 +323,8 @@ const CLASS_MAP = {
   "盾牌":"Shield","腰带":"Belt","项链":"Amulet","戒指":"Ring","箭袋":"Quiver",
   "匕首":"Dagger","短剑":"Dagger","单手剑":"One Hand Sword","双手剑":"Two Hand Sword",
   "细剑":"Thrusting One Hand Sword","单手斧":"One Hand Axe","双手斧":"Two Hand Axe",
-  "单手锤":"One Hand Mace","双手锤":"Two Hand Mace","权杖":"Sceptre","法杖":"Staff",
-  "长杖":"Warstaff","弓":"Bow","法器":"Wand","鱼竿":"Fishing Rod",
+  "单手锤":"One Hand Mace","双手锤":"Two Hand Mace","权杖":"Sceptre","法杖":"Wand",
+  "长杖":"Staff","弓":"Bow","法器":"Focus","鱼竿":"Fishing Rod",
   "爪":"Claw","军旗":"War Banner",
   "生命药剂":"Life Flask","魔力药剂":"Mana Flask","混合药剂":"Hybrid Flask","神圣药剂":"Utility Flask",
   "功能药剂":"Utility Flask",
@@ -373,6 +373,19 @@ function lookupTemplate(template) {
   }
   hit = EXTRA_MOD_DICT[template];
   if (hit !== undefined) return hit;
+  // Some statDescriptions.csv rows number their {0}/{1} placeholders to
+  // match the English argument order, which isn't always the order the
+  // numbers appear in the Chinese text (e.g. "每 {1}% 品质使效果区域扩大
+  // {0}%" <-> "Grants {0}% increased Area of Effect per {1}% Quality" -
+  // Quality comes first in the Chinese sentence but is argument {1} in
+  // English). Our template always numbers by first-appearance order, so as
+  // a last resort, try the swapped form and swap the match back so it lines
+  // up with our own values array.
+  if (template.includes("{0}") && template.includes("{1}") && !template.includes("{2}")) {
+    const swap01 = (s) => s.replace(/\{0\}/g, "\x00").replace(/\{1\}/g, "{0}").replace(/\x00/g, "{1}");
+    hit = MOD_DICT[swap01(template)];
+    if (hit !== undefined) return swap01(hit);
+  }
   return undefined;
 }
 
@@ -467,11 +480,13 @@ function convertItem(raw) {
     "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7ed3\u754c": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
     "\u654f\u6377": "Dexterity", "\u667a\u6167": "Intelligence", "\u7269\u54c1\u7b49\u7ea7": "Item Level",
     "\u4ec5\u9650": "Limited to", "\u8303\u56f4": "Radius", "\u683c\u6321\u51e0\u7387": "Chance to Block",
+    "\u7269\u7406\u4f24\u5bb3": "Physical Damage", "\u653b\u51fb\u66b4\u51fb\u7387": "Critical Strike Chance",
+    "\u6bcf\u79d2\u653b\u51fb\u6b21\u6570": "Attacks per Second",
   };
   const FIXED_LINES = {
     "\u9700\u6c42:": "Requirements:", "\u5df2\u8150\u5316": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
-    "\u672a\u9274\u5b9a": "Unidentified", "\u5206\u88c2": "Split", "\u711a\u754c\u8005\u7269\u54c1": "Searing Exarch Item",
-    "\u706d\u754c\u8005\u7269\u54c1": "Eater of Worlds Item",
+    "\u672a\u9274\u5b9a": "Unidentified", "\u5df2\u5206\u88c2": "Split", "\u5206\u88c2\u4e4b\u7269": "Fractured Item",
+    "\u711a\u754c\u8005\u7269\u54c1": "Searing Exarch Item", "\u706d\u754c\u8005\u7269\u54c1": "Eater of Worlds Item",
   };
   // Value-side word substitutions for LABEL_MAP fields whose value also
   // contains untranslated Chinese (e.g. "Limited to: 1 \u53f2\u5b9e", "Radius: \u5c0f").
@@ -545,6 +560,16 @@ function convertItem(raw) {
     const compact = stripLabelSpaces(line);
 
     if (DROP_LINES.has(compact)) return { drop: true };
+
+    // Weapons repeat their own base type as a bare line (no colon) inside
+    // the attack-stats block (e.g. a Staff's tooltip literally has a lone
+    // "Staff" line before "Physical Damage: ..."). PoB's parser explicitly
+    // recognises and ignores this line when it matches the item's base type
+    // (Item.lua:1322) rather than treating it as an unrecognised mod, so
+    // translate it via the same CLASS_MAP used for "Item Class:".
+    if (value === null && compact in CLASS_MAP) {
+      return { text: CLASS_MAP[compact] };
+    }
 
     if (label === "\u63d2\u69fd" && value !== null) {
       return { text: "Sockets: " + value };
