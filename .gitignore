@@ -1,0 +1,4 @@
+build/
+poecharm_data/
+__pycache__/
+*.pyc
