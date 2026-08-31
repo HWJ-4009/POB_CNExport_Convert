@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-把 build_dict.py 生成的两份字典内嵌进单文件 HTML 页面。
+把 build_dict.py 生成的三份字典内嵌进单文件 HTML 页面。
 先跑 build_dict.py，再跑这个脚本：
     python build_dict.py --poecharm-data "D:\\PoeCharm\\Data\\Translate\\zh-rCN"
     python gen_html.py
@@ -17,9 +17,12 @@ with open(os.path.join(BUILD_DIR, "mod_dict.json"), encoding="utf-8") as f:
     mod_dict = json.load(f)
 with open(os.path.join(BUILD_DIR, "base_dict.json"), encoding="utf-8") as f:
     base_dict = json.load(f)
+with open(os.path.join(BUILD_DIR, "notable_dict.json"), encoding="utf-8") as f:
+    notable_dict = json.load(f)
 
 mod_dict_json = json.dumps(mod_dict, ensure_ascii=False, separators=(",", ":"))
 base_dict_json = json.dumps(base_dict, ensure_ascii=False, separators=(",", ":"))
+notable_dict_json = json.dumps(notable_dict, ensure_ascii=False, separators=(",", ":"))
 
 TEMPLATE = r"""<!doctype html>
 <meta charset="utf-8">
@@ -339,6 +342,7 @@ footer.note code {
 <script>
 const MOD_DICT = MOD_DICT_PLACEHOLDER;
 const BASE_DICT = BASE_DICT_PLACEHOLDER;
+const NOTABLE_DICT = NOTABLE_DICT_PLACEHOLDER;
 
 const CLASS_MAP = {
   "头盔":"Helmet","胸甲":"Body Armour","护手":"Gloves","手套":"Gloves","鞋子":"Boots","靴子":"Boots",
@@ -537,6 +541,14 @@ function convertItem(raw) {
   const ENCHANT_GRANT_PREFIX_ZH = "\u589e\u52a0\u7684\u5c0f\u5929\u8d4b\u83b7\u5f97\uff1a";
   const ENCHANT_GRANT_PREFIX_EN = "Added Small Passive Skills grant: ";
 
+  // Anoint enchants ("\u914d\u7f6e <Notable Name> (enchant)") name a passive tree
+  // node, not a number, so they can't go through the usual digit-placeholder
+  // template lookup - the template is "Allocates {0}" (statDescriptions.csv,
+  // confirmed) with {0} being the node's own display name (tree_dn.csv,
+  // e.g. "Testudo" <-> "\u9f9f\u7532\u76fe").
+  const ANOINT_PREFIX_ZH = "\u914d\u7f6e ";
+  const ANOINT_PREFIX_EN = "Allocates ";
+
   // When an item's quality came from a Catalyst, PoB expects the label
   // "Quality (<Descriptor> Modifiers)" - confirmed via Item.lua:653-659
   // (`specName:match("Quality %([%a%s]+ Modifiers%)")` matched against the 12
@@ -562,6 +574,12 @@ function convertItem(raw) {
 
     if (label === "\u63d2\u69fd" && value !== null) {
       return { text: "Sockets: " + value };
+    }
+    if (line.startsWith(ANOINT_PREFIX_ZH)) {
+      const nodeNameZh = line.slice(ANOINT_PREFIX_ZH.length);
+      const nodeNameEn = NOTABLE_DICT[nodeNameZh];
+      if (nodeNameEn) return { text: ANOINT_PREFIX_EN + nodeNameEn };
+      return { miss: line };
     }
     const qualityCatalystMatch = value !== null && label.match(/^\u54c1\u8d28\uff08(.+)\u8bcd\u7f00\uff09$/);
     if (qualityCatalystMatch) {
@@ -710,7 +728,11 @@ copyBtn.addEventListener("click", async () => {
 </script>
 """
 
-html = TEMPLATE.replace("MOD_DICT_PLACEHOLDER", mod_dict_json).replace("BASE_DICT_PLACEHOLDER", base_dict_json)
+html = (
+    TEMPLATE.replace("MOD_DICT_PLACEHOLDER", mod_dict_json)
+    .replace("BASE_DICT_PLACEHOLDER", base_dict_json)
+    .replace("NOTABLE_DICT_PLACEHOLDER", notable_dict_json)
+)
 
 os.makedirs(DIST_DIR, exist_ok=True)
 out_path = os.path.join(DIST_DIR, "poe_item_decoder.html")

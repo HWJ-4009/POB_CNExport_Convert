@@ -70,6 +70,16 @@ def build_base_dict(base_dir):
     return base_dict
 
 
+def build_notable_dict(base_dir):
+    # Passive tree node display names (notables/keystones/etc) - needed to
+    # translate anoint enchant lines ("Allocates <Notable Name>").
+    notable_dict = {}
+    for en, zh in load_csv_pairs(base_dir, "tree_dn.csv"):
+        notable_dict.setdefault(zh, en)
+    print("tree node display names:", len(notable_dict))
+    return notable_dict
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -91,16 +101,21 @@ def main():
 
     mod_dict = build_mod_dict(base_dir)
     base_dict = build_base_dict(base_dir)
+    notable_dict = build_notable_dict(base_dir)
 
     mod_path = os.path.join(BUILD_DIR, "mod_dict.json")
     base_path = os.path.join(BUILD_DIR, "base_dict.json")
+    notable_path = os.path.join(BUILD_DIR, "notable_dict.json")
     with open(mod_path, "w", encoding="utf-8") as f:
         json.dump(mod_dict, f, ensure_ascii=False)
     with open(base_path, "w", encoding="utf-8") as f:
         json.dump(base_dict, f, ensure_ascii=False)
+    with open(notable_path, "w", encoding="utf-8") as f:
+        json.dump(notable_dict, f, ensure_ascii=False)
 
     print("mod_dict.json:", os.path.getsize(mod_path), "bytes ->", mod_path)
     print("base_dict.json:", os.path.getsize(base_path), "bytes ->", base_path)
+    print("notable_dict.json:", os.path.getsize(notable_path), "bytes ->", notable_path)
 
 
 if __name__ == "__main__":
