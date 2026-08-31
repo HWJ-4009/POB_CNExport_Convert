@@ -455,18 +455,40 @@ function convertItem(raw) {
       "\u54c1\u8d28": "Quality", "\u62a4\u7532": "Armour", "\u95ea\u907f\u503c": "Evasion Rating",
       "\u80fd\u91cf\u62a4\u76fe": "Energy Shield", "\u865a\u5316": "Ward", "\u7b49\u7ea7": "Level", "\u529b\u91cf": "Strength",
       "\u654f\u6377": "Dexterity", "\u667a\u6167": "Intelligence", "\u7269\u54c1\u7b49\u7ea7": "Item Level",
+      "\u4ec5\u9650": "Limited to",
     };
     const FIXED_LINES = {
-      "\u9700\u6c42:": "Requirements:", "\u5df2\u6c61\u67d3": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
+      "\u9700\u6c42:": "Requirements:", "\u5df2\u8150\u5316": "Corrupted", "\u5df2\u590d\u5236": "Mirrored",
       "\u672a\u9274\u5b9a": "Unidentified", "\u5206\u88c2": "Split", "\u711a\u754c\u8005\u7269\u54c1": "Searing Exarch Item",
       "\u706d\u754c\u8005\u7269\u54c1": "Eater of Worlds Item",
     };
+    // Value-side word substitutions for LABEL_MAP fields whose value also
+    // contains untranslated Chinese (e.g. "Limited to: 1 \u53f2\u5b9e").
+    const VALUE_WORD_MAP = { "\u53f2\u5b9e": "Historic" };
+    // Fixed UI/instruction text that has no effect on any PoB calculation
+    // (confirmed absent from PoB's own Item.lua field parser and its bundled
+    // Uniques database) - safe to drop, same rationale as bracket/reminder lines.
+    const DROP_LINES = new Set([
+      "\u653e\u7f6e\u5230\u4e00\u4e2a\u5929\u8d4b\u6811\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u4ea7\u751f\u6548\u679c\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
+      "\u653e\u5165\u4e00\u4e2a\u7269\u54c1\u7684\u6df1\u6e0a\u63d2\u69fd\u6216\u5929\u8d4b\u6811\u4e0a\u7684\u73e0\u5b9d\u63d2\u69fd\u4e2d\u4ee5\u751f\u6548\u3002\u53f3\u952e\u70b9\u51fb\u4ee5\u79fb\u51fa\u63d2\u69fd\u3002",
+      "\u51fa\u552e\u83b7\u5f97\u901a\u8d27:\u975e\u7ed1\u5b9a",
+    ]);
+    // "X \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574" (e.g. "\u53f2\u5b9e \u2014 \u6570\u503c\u4e0d\u53ef\u8c03\u6574"): a client-side
+    // annotation noting a value can't be modified by quality/catalysts. Not a
+    // field PoB's parser or unique database recognises either - drop it.
+    const isValueLockedAnnotation = /^.+\u2014\u6570\u503c\u4e0d\u53ef\u8c03\u6574$/.test(compact);
+
+    if (DROP_LINES.has(compact) || isValueLockedAnnotation) continue;
 
     let mapped = null;
     if (label === "\u63d2\u69fd" && value !== null) {
       mapped = "Sockets: " + value;
     } else if (label in LABEL_MAP && value !== null) {
-      mapped = LABEL_MAP[label] + ": " + value;
+      let mappedValue = value;
+      for (const [zh, en] of Object.entries(VALUE_WORD_MAP)) {
+        mappedValue = mappedValue.split(zh).join(en);
+      }
+      mapped = LABEL_MAP[label] + ": " + mappedValue;
     } else if (compact in FIXED_LINES) {
       mapped = FIXED_LINES[compact];
     }
