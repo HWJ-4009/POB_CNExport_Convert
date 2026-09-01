@@ -459,6 +459,21 @@ const EXTRA_MOD_DICT = {
   // ("击中有" vs "击中时有", "威吓" vs "恐惧" - both mean the same Unnerve
   // ailment, just different CN phrasing for the same EN stat).
   "击中有 {0}% 的几率威吓敌人 {1} 秒": "{0}% chance to Unnerve Enemies for {1} seconds on Hit",
+  // The Red Nightmare (Timeless/Historic-style Crimson Jewel); confirmed
+  // exact multi-line wording via PathOfBuilding source
+  // (src/Data/Uniques/jewel.lua:656-657, variant 2 = the 50% roll).
+  "范围内提高火焰抗性或所有元素的天赋\n也会以 {0}% 的比例提高攻击伤害格挡几率":
+    "Passives granting Fire Resistance or all Elemental Resistances in Radius\nalso grant Chance to Block Attack Damage at {0}% of its value",
+  // Reconstructed from three independently-confirmed fragments (祭血术 =
+  // "Blood Magic" per tree_dn.csv; "未连结至天赋树的情况下配置" = "without
+  // being connected to your tree" per statDescriptions.csv id 4557; 通途 =
+  // "Passage", the notable name used by the structurally-identical
+  // "Intuitive Leap" jewel.lua entry). The exact unique isn't in this local
+  // PoB source snapshot, so unlike the other entries here this one hasn't
+  // been checked against one single complete source string - worth an
+  // extra look after importing.
+  "祭血术范围内的核心天赋技能可以在\n未连结至天赋树的情况下配置\n通途":
+    "Notable Passive Skills in Blood Magic's Radius can be Allocated without being connected to your tree\nPassage",
 };
 
 function lookupTemplate(template) {
@@ -558,6 +573,14 @@ const DROP_LINES = new Set([
   "\u51fa\u552e\u83b7\u5f97\u901a\u8d27:\u975e\u7ed1\u5b9a",
   "\u53f3\u952e\u70b9\u51fb\u996e\u7528\u3002\u53ea\u6709\u5728\u8170\u5e26\u91cc\u624d\u6062\u590d\u4f7f\u7528\u6b21\u6570\u3002\u51fb\u8d25\u654c\u4eba\u65f6\u5145\u6ee1\u3002",
   "\u70b9\u51fb\u53f3\u952e\u4ee5\u559d\u4e0b\u836f\u5242\u3002\u53ea\u6709\u88c5\u5907\u4e8e\u8170\u5e26\u4e0a\u65f6\u624d\u4f1a\u5145\u80fd\u3002\u51fb\u8d25\u602a\u7269\u65f6\u4f1a\u56de\u590d\u5145\u80fd\u6b21\u6570\u3002",
+  // Abyss-league Historic Eye Jewels (Festering Vengeance etc, confirmed
+  // earlier via jewel.lua) show "\u6df1\u6e0a" as a bare category tag (a property
+  // with an empty values array - no ":" field at all) and repeat "\u53f2\u5b9e"
+  // as a bare mod-list entry alongside the already-handled "\u4ec5\u9650: 1 \u53f2\u5b9e"
+  // property. Neither has any PoB field or database entry - same rationale
+  // as the other drops above.
+  "\u6df1\u6e0a",
+  "\u53f2\u5b9e",
 ]);
 // Flask duration/charge state lines. These aren't dictionary mod
 // templates - PoB's own parser recognises and no-ops them by an exact
