@@ -27,9 +27,18 @@
 3. 右边自动生成 PoB 能识别的英文文本（没匹配上的词条会保留中文原文并标红列出来，不会静默丢弃或猜错）
 4. 复制右边结果，粘贴进 PoB / PoeCharm
 
+## 完整构筑一键转码
+
+页面下半部分还有一个「完整构筑一键转码」区块：粘贴国服 BD 导出工具生成的完整角色 JSON（包含 `items` 和 `passiveSkills` 两个字段），自动翻译全部装备词条、识别技能石（宝石名 + 等级 + 品质）、读取天赋配点（配点是纯数字节点 ID，天生跟语言无关），拼装压缩成一段可以直接粘贴进 PoB「输入 URL 或代码」框的构筑码。
+
+已知局限：
+- 天赋树上珠宝插槽（史实/星团/深渊珠宝等）里的珠宝会作为物品一起导入，但暂不会自动插回天赋树上对应的插槽，需要手动拖拽。
+- 文身（Tattoo）改造过的天赋节点效果暂不支持，会保留原始节点。
+- 这个功能没有经过真实 PoB 客户端逐项验证（生成逻辑对照 PathOfBuilding 开源代码核实过格式，但无法在本环境里实际打开 PoB 测试导入结果），建议导入后自行核对装备与技能是否正确。
+
 ## 从源码重新构建
 
-`dist/poe_item_decoder.html` 是自包含的产物（把编译好的词条字典直接内嵌进了页面），日常使用不需要重新构建。只有更新翻译数据、或想改转换逻辑时才需要：
+`dist/poe_item_decoder.html` 是自包含的产物（把编译好的词条字典、以及 [pako](https://github.com/nodeca/pako)（MIT/Zlib 双授权，用于构筑码的 deflate 压缩）直接内嵌进了页面），日常使用不需要重新构建。只有更新翻译数据、或想改转换逻辑时才需要：
 
 ```bash
 # 1. 编译词条字典（需要你本机装好的 PoeCharm 的汉化数据目录）
@@ -50,8 +59,9 @@ python gen_html.py
 ## 目录结构
 
 ```
-build_dict.py   编译 CN→EN 字典（statDescriptions.csv / Items_*.txt.csv → build/*.json）
-gen_html.py     把字典内嵌进单文件页面 → dist/poe_item_decoder.html
-dist/           最终产物，唯一需要分发的文件
-build/          中间产物（.gitignore 排除，本地重新生成）
+build_dict.py       编译 CN→EN 字典（statDescriptions.csv / Items_*.txt.csv / tree_dn.csv / Gems_data.txt.csv → build/*.json）
+gen_html.py         把字典 + vendor_pako.min.js 内嵌进单文件页面 → dist/poe_item_decoder.html
+vendor_pako.min.js  第三方 deflate 压缩库（MIT/Zlib 授权，用于生成构筑码），直接提交进仓库
+dist/               最终产物，唯一需要分发的文件
+build/              中间产物（.gitignore 排除，本地重新生成）
 ```

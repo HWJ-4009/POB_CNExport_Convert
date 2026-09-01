@@ -80,6 +80,27 @@ def build_notable_dict(base_dir):
     return notable_dict
 
 
+def _normalise_parens(s):
+    return s.replace("（", "(").replace("）", ")")
+
+
+def build_gem_dict(base_dir):
+    # Gem base names (incl. transfigured variants and " Support" gems) -
+    # needed for the full-build importer to identify gems by their JSON
+    # typeLine/hybrid.baseTypeName. Paren width is normalised because the
+    # game client's typeLine uses half-width "(辅)" while some CSV rows use
+    # full-width "（辅）".
+    gem_dict = {}
+    for fn in ("Gems_data.txt.csv", "Items_Gems.txt.csv"):
+        try:
+            for en, zh in load_csv_pairs(base_dir, fn):
+                gem_dict.setdefault(_normalise_parens(zh), en)
+        except FileNotFoundError:
+            print("missing (skipped):", fn)
+    print("gem names:", len(gem_dict))
+    return gem_dict
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -102,20 +123,25 @@ def main():
     mod_dict = build_mod_dict(base_dir)
     base_dict = build_base_dict(base_dir)
     notable_dict = build_notable_dict(base_dir)
+    gem_dict = build_gem_dict(base_dir)
 
     mod_path = os.path.join(BUILD_DIR, "mod_dict.json")
     base_path = os.path.join(BUILD_DIR, "base_dict.json")
     notable_path = os.path.join(BUILD_DIR, "notable_dict.json")
+    gem_path = os.path.join(BUILD_DIR, "gem_dict.json")
     with open(mod_path, "w", encoding="utf-8") as f:
         json.dump(mod_dict, f, ensure_ascii=False)
     with open(base_path, "w", encoding="utf-8") as f:
         json.dump(base_dict, f, ensure_ascii=False)
     with open(notable_path, "w", encoding="utf-8") as f:
         json.dump(notable_dict, f, ensure_ascii=False)
+    with open(gem_path, "w", encoding="utf-8") as f:
+        json.dump(gem_dict, f, ensure_ascii=False)
 
     print("mod_dict.json:", os.path.getsize(mod_path), "bytes ->", mod_path)
     print("base_dict.json:", os.path.getsize(base_path), "bytes ->", base_path)
     print("notable_dict.json:", os.path.getsize(notable_path), "bytes ->", notable_path)
+    print("gem_dict.json:", os.path.getsize(gem_path), "bytes ->", gem_path)
 
 
 if __name__ == "__main__":
